@@ -1,0 +1,38 @@
+{
+  "name": "simple-module-graph",
+  "version": "0.1.0",
+  "repository": "https://github.com/yejimeiming/simple-module-graph.git",
+  "author": "草鞋没号 <308487730@qq.com>",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./*": "./*"
+  },
+  "scripts": {
+    "build:types": "tsc",
+    "build:bundle": "vite build",
+    "build": "npm run build:bundle && npm run build:types",
+    "prepublishOnly": "npm run test && npm run build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.20",
+    "@babel/traverse": "^7.20",
+    "@babel/types": "^7.20"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7"
+  },
+  "files": [
+    "dist"
+  ]
+}

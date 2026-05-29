@@ -1,0 +1,138 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ModuleGraph > snapshot > should match snapshot for circular dependency graph 1`] = `
+{
+  "<fixtures>/circularA.ts": {
+    "dependencies": [
+      "<fixtures>/circularB.ts",
+    ],
+    "id": "<fixtures>/circularA.ts",
+    "importedBindings": {
+      "<fixtures>/circularB.ts": [
+        "b",
+      ],
+    },
+    "importers": [
+      "<fixtures>/circularB.ts",
+    ],
+  },
+  "<fixtures>/circularB.ts": {
+    "dependencies": [
+      "<fixtures>/circularA.ts",
+    ],
+    "id": "<fixtures>/circularB.ts",
+    "importedBindings": {
+      "<fixtures>/circularA.ts": [
+        "a",
+      ],
+    },
+    "importers": [
+      "<fixtures>/circularA.ts",
+    ],
+  },
+}
+`;
+
+exports[`ModuleGraph > snapshot > should match snapshot for entry dependency graph 1`] = `
+{
+  "<fixtures>/bar.ts": {
+    "dependencies": [
+      "<fixtures>/utils.ts",
+    ],
+    "id": "<fixtures>/bar.ts",
+    "importedBindings": {
+      "<fixtures>/utils.ts": [
+        "helper",
+      ],
+    },
+    "importers": [
+      "<fixtures>/entry.ts",
+    ],
+  },
+  "<fixtures>/entry.ts": {
+    "dependencies": [
+      "<fixtures>/foo.ts",
+      "<fixtures>/bar.ts",
+      "<fixtures>/utils.ts",
+    ],
+    "id": "<fixtures>/entry.ts",
+    "importedBindings": {
+      "<fixtures>/bar.ts": [
+        "default",
+      ],
+      "<fixtures>/foo.ts": [
+        "foo",
+      ],
+      "<fixtures>/utils.ts": [
+        "*",
+      ],
+    },
+    "importers": [],
+  },
+  "<fixtures>/foo.ts": {
+    "dependencies": [],
+    "id": "<fixtures>/foo.ts",
+    "importedBindings": {},
+    "importers": [
+      "<fixtures>/entry.ts",
+    ],
+  },
+  "<fixtures>/utils.ts": {
+    "dependencies": [],
+    "id": "<fixtures>/utils.ts",
+    "importedBindings": {},
+    "importers": [
+      "<fixtures>/bar.ts",
+      "<fixtures>/entry.ts",
+    ],
+  },
+}
+`;
+
+exports[`ModuleGraph > snapshot > should match snapshot for module with node_modules dependency 1`] = `
+{
+  "<fixtures>/utils.ts": {
+    "dependencies": [],
+    "id": "<fixtures>/utils.ts",
+    "importedBindings": {},
+    "importers": [
+      "<fixtures>/withExternal.ts",
+    ],
+  },
+  "<fixtures>/withExternal.ts": {
+    "dependencies": [
+      "node_modules/lodash",
+      "<fixtures>/utils.ts",
+    ],
+    "id": "<fixtures>/withExternal.ts",
+    "importedBindings": {
+      "<fixtures>/utils.ts": [
+        "helper",
+      ],
+      "node_modules/lodash": [
+        "map",
+      ],
+    },
+    "importers": [],
+  },
+  "node_modules/lodash": {
+    "dependencies": [],
+    "id": "node_modules/lodash",
+    "importedBindings": {},
+    "importers": [
+      "<fixtures>/withExternal.ts",
+    ],
+  },
+}
+`;
+
+exports[`ModuleGraph > snapshot > should match snapshot for single module with no imports 1`] = `
+{
+  "<fixtures>/empty.ts": {
+    "dependencies": [],
+    "id": "<fixtures>/empty.ts",
+    "importedBindings": {},
+    "importers": [],
+  },
+}
+`;
