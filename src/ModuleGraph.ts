@@ -10,31 +10,61 @@ import type {
 class ModuleNode {
   /** 模块的唯一标识，通常是文件的绝对路径 */
   id: string;
+  /** 原始 id */
+  rawId: string;
   /** 源码内容 */
-  code!: string;
+  code: string | undefined;
   /** AST 语法树 */
-  ast!: BabelStyleAST;
+  ast: BabelStyleAST | undefined;
   /** 当前模块依赖的 */
   dependencies = new Set<ModuleNode>();
   /** 哪些模块依赖当前模块 */
   importers = new Set<ModuleNode>();
   /** 导入的具体变量 */
-  importedBindings = new Map<string, Set<string>>();
+  importedBindings = new Map<string, {
+    id: string;
+    rawId: string;
+    specifiers: Set<string>;
+  }>();
+  /** 解析错误 */
+  error?: {
+    type: 'parse' | 'resolve' | 'unknown';
+    message: string;
+    extra?: any;
+  };
 
-  constructor(id: string) {
+  constructor(
+    rawId: string,
+    id: string,
+  ) {
+    this.rawId = rawId;
     this.id = id;
-    // this.ast = babelParse(code, { sourceType: 'module' }).program;
   }
 
   /** JSON 序列化：Set/Map 降级为 Array/Object，避免循环引用 */
   toJSON() {
     return {
       id: this.id,
-      dependencies: [...this.dependencies].map((d) => d.id),
-      importers: [...this.importers].map((d) => d.id),
+      rawId: this.rawId,
+      dependencies: Object.fromEntries([...this.dependencies].map((d) => [d.rawId, ({ id: d.id })])),
+      /*
+      importers: Object.fromEntries([...this.importers].map((d) => [d.rawId, ({ id: d.id })])),
       importedBindings: Object.fromEntries(
-        [...this.importedBindings].map(([k, v]) => [k, [...v]]),
+        [...this.importedBindings].map(([k, v]) =>
+          [k,
+            {
+              id: v.id,
+              specifiers: [...v.specifiers],
+            },
+          ]),
       ),
+      */
+      error: this.error
+        ? {
+          type: this.error.type,
+          message: this.error.message,
+        }
+        : undefined,
     };
   }
 }
@@ -46,15 +76,18 @@ export class ModuleGraph {
 
   /** 路径解析别名 */
   private alias;
+  /** 文件扩展名 */
+  private extensions;
 
   constructor(private options: ModuleGraphOptions = {}) {
     this.alias = this.options.alias ?? {};
+    this.extensions = this.options.extensions ?? ['.js', '.jsx', '.ts', '.tsx', '.json'];
   }
 
   /** JSON 序列化：Map/Set 降级为 Object/Array，方便调试输出 */
   public toJSON() {
     return {
-      entryPoints: [...this.entryPoints].map((m) => m.id),
+      entryPoints: Object.fromEntries([...this.entryPoints].map((m) => [m.rawId, { id: m.id }])),
       modules: Object.fromEntries(
         [...this.modules].map(([id, mod]) => [id, mod.toJSON()]),
       ),
@@ -62,49 +95,77 @@ export class ModuleGraph {
   }
 
   /** 添加模块(核心方法) */
-  public async addModule(id: string, isEntry = false): Promise<ModuleNode> {
-    if (this.modules.has(id)) {
-      return this.modules.get(id)!;
+  public async addModule({
+    id,
+    rawId,
+    isEntry = false,
+  }: {
+    id?: string;
+    rawId: string;
+    isEntry?: boolean;
+  }): Promise<ModuleNode | null> {
+    // 入口路径可能包含 alias 前缀（如 @/pages/Index.tsx），需先解析
+    const resolvedId = id ?? await this.resolveId(rawId);
+    if (!resolvedId) return null;
+
+    if (this.modules.has(rawId)) {
+      return this.modules.get(rawId)!;
     }
 
-    const module = new ModuleNode(id);
-    this.modules.set(id, module);
+    const module = new ModuleNode(rawId, resolvedId);
+    this.modules.set(rawId, module);
 
     if (isEntry) {
       this.entryPoints.add(module);
     }
 
     // 读取源码
-    module.code = await fs.promises.readFile(id, 'utf-8');
+    module.code = await fs.promises.readFile(resolvedId, 'utf-8');
 
     // 解析 AST 并读取依赖
+    // TODO: .less, .png 等非 js 模块的依赖处理
     await this.resolveDependencies(module);
 
     return module;
   }
 
   private async resolveDependencies(module: ModuleNode): Promise<void> {
-    const ast = this.parseAST(module.code);
+    let ast: BabelStyleAST | undefined;
+
+    try {
+      ast = this.parseAST(module.code as string);
+    } catch (error: any) {
+      module.error = {
+        type: 'parse',
+        message: error.message,
+        extra: error,
+      };
+    }
+    if (!ast) return;
+
     const imports = this.extractImports(ast);
 
     for (const importInfo of imports) {
+      const rawId = importInfo.source;
       // 路径解析（需要处理 alias、node_modules 等）
-      const resolvedPath = await this.resolvePath(importInfo.source, module.id);
+      const resolvedId = await this.resolveId(importInfo.source, module.id);
 
       // 无法解析的路径跳过（如绝对路径等）
-      if (!resolvedPath) continue;
+      if (!resolvedId) continue;
 
       // node_modules 作为叶子节点，只记录依赖关系，不深入解析
       let depModule: ModuleNode;
-      if (resolvedPath.startsWith('node_modules/')) {
-        if (this.modules.has(resolvedPath)) {
-          depModule = this.modules.get(resolvedPath)!;
+      if (resolvedId.startsWith('node_modules/')) {
+        if (this.modules.has(resolvedId)) {
+          depModule = this.modules.get(resolvedId)!;
         } else {
-          depModule = new ModuleNode(resolvedPath);
-          this.modules.set(resolvedPath, depModule);
+          depModule = new ModuleNode(rawId, resolvedId);
+          this.modules.set(resolvedId, depModule);
         }
       } else {
-        depModule = await this.addModule(resolvedPath);
+        const depMod = await this.addModule({ id: resolvedId, rawId });
+        if (!depMod) continue;
+        depModule = depMod;
       }
 
       // 建立双向连接
@@ -112,12 +173,22 @@ export class ModuleGraph {
       depModule.importers.add(module);
 
       // 记录具体的导入绑定
-      module.importedBindings.set(resolvedPath, new Set(importInfo.specifiers));
+      module.importedBindings.set(rawId, {
+        id: resolvedId,
+        rawId,
+        specifiers: new Set(importInfo.specifiers),
+      });
     }
   }
 
-  private parseAST(code: string) {
-    return babelParse(code, { sourceType: 'module' });
+  private parseAST(code: string): BabelStyleAST {
+    return babelParse(code, {
+      sourceType: 'module',
+      plugins: [
+        'jsx',
+        'typescript',
+      ],
+    });
   }
 
   private extractImports(
@@ -158,26 +229,64 @@ export class ModuleGraph {
     return imports;
   }
 
-  private async resolvePath(source: string, importer: string): Promise<string | null> {
-    // 1. 相对路径
-    if (source.startsWith('.')) {
-      return path.resolve(path.dirname(importer), source);
-    }
-
-    // 2. alias
+  /** alias 前缀匹配解析（独立方法，供 addModule 和 resolvePath 复用） */
+  private async resolveAlias(source: string): Promise<string | null> {
     for (const [key, getPath] of Object.entries(this.alias)) {
       const prefix = `${key}/`;
       if (source.startsWith(prefix)) {
         return getPath() + source.slice(prefix.length - 1);
       }
     }
+    return null;
+  }
 
-    // 3. node_modules — 只记录包名，不深入解析
+  private async tryResolveWithExt(source: string): Promise<string | null> {
+    if (fs.existsSync(source) && fs.statSync(source).isFile()) {
+      return source;
+    }
+
+    for (const ext of this.extensions) {
+      const filePaths = [
+        // e.g. import './foo' -> './foo.ts'
+        source + ext,
+        // e.g. import './foo' -> './foo/index.ts'
+        `${source}/index${ext}`,
+      ];
+
+      for (const filePath of filePaths) {
+        if (fs.existsSync(filePath)) {
+          return filePath;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private async resolveId(source: string, importer?: string): Promise<string | null> {
+    // 1. 绝对路径
+    if (path.isAbsolute(source)) {
+      return await this.tryResolveWithExt(source);
+    }
+
+    // 2. 相对路径
+    if (source.startsWith('.') && importer) {
+      const id = path.resolve(path.dirname(importer), source);
+      return await this.tryResolveWithExt(id);
+    }
+
+    // 3. alias
+    const aliasResolved = await this.resolveAlias(source);
+    if (aliasResolved) {
+      return await this.tryResolveWithExt(aliasResolved);
+    }
+
+    // 4. node_modules — 只记录包名，不深入解析(裸模块)
     if (!source.startsWith('.') && !source.startsWith('/')) {
       return `node_modules/${source}`;
     }
 
-    // 4. 其它情况
+    // 5. 其它情况 - 不做处理(.less, .png)
     return null;
   }
 }

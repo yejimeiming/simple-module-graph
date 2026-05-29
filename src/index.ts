@@ -27,7 +27,7 @@ export async function getModuleGraph(options: GetModuleGraphOptions) {
     alias: customAlias,
   } = options;
 
-  const alias: ModuleGraphOptions['alias'] = {
+  const alias: GetModuleGraphOptions['alias'] = {
     ...createDefaultAlias(cwd),
     ...customAlias,
   };
@@ -36,8 +36,7 @@ export async function getModuleGraph(options: GetModuleGraphOptions) {
 
   const entryFiles = Array.isArray(files) ? files : [files];
   for (const file of entryFiles) {
-    const filePath = path.isAbsolute(file) ? file : path.resolve(cwd, file);
-    await graph.addModule(filePath, true);
+    await graph.addModule({ rawId: file, isEntry: true });
   }
 
   return graph;

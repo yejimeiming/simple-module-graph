@@ -9,6 +9,8 @@ export type BabelStyleAST = ReturnType<typeof babelParse>;
 export interface ModuleGraphOptions {
   /** 路径解析别名 */
   alias?: Record<string, () => string>;
+  /** 文件扩展名 */
+  extensions?: string[];
 }
 
 export interface GetModuleGraphOptions {
