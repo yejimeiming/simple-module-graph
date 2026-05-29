@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.1.0(2026/05/29)
+## v0.2.0 (2026/05/29)
+
+- Add `ModuleGraph.toJSON()` for debugging and serialization
+- Encapsulate internal APIs as `private`: `resolveDependencies`, `parseAST`, `extractImports`, `resolvePath`, `alias`
+- Explicitly mark public API: `modules`, `entryPoints`, `addModule`
+
+## v0.1.0 (2026/05/29)
 
 Initial release.
 

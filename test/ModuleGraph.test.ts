@@ -5,25 +5,32 @@ import { getModuleGraph } from '../src/index';
 
 const fixturesDir = path.resolve(__dirname, 'fixtures');
 
+/** Access private methods for unit-testing internals */
+const _priv = (graph: ModuleGraph) => graph as unknown as {
+  parseAST: typeof graph['parseAST'];
+  extractImports: typeof graph['extractImports'];
+  resolvePath: typeof graph['resolvePath'];
+};
+
 describe('ModuleGraph', () => {
   describe('parseAST', () => {
     it('should parse valid JavaScript code', () => {
       const graph = new ModuleGraph();
-      const ast = graph.parseAST('const x = 1;');
+      const ast = _priv(graph).parseAST('const x = 1;');
       expect(ast.type).toBe('File');
       expect(ast.program.type).toBe('Program');
     });
 
     it('should parse ES module syntax', () => {
       const graph = new ModuleGraph();
-      const ast = graph.parseAST("import foo from 'bar';");
+      const ast = _priv(graph).parseAST("import foo from 'bar';");
       expect(ast.program.body).toHaveLength(1);
       expect(ast.program.body[0].type).toBe('ImportDeclaration');
     });
 
     it('should parse code with export declarations', () => {
       const graph = new ModuleGraph();
-      const ast = graph.parseAST('export const foo = 1;');
+      const ast = _priv(graph).parseAST('export const foo = 1;');
       expect(ast.program.body).toHaveLength(1);
       expect(ast.program.body[0].type).toBe('ExportNamedDeclaration');
     });
@@ -32,36 +39,36 @@ describe('ModuleGraph', () => {
   describe('extractImports', () => {
     it('should extract default import', () => {
       const graph = new ModuleGraph();
-      const ast = graph.parseAST("import foo from 'bar';");
-      const imports = graph.extractImports(ast);
+      const ast = _priv(graph).parseAST("import foo from 'bar';");
+      const imports = _priv(graph).extractImports(ast);
       expect(imports).toEqual([{ source: 'bar', specifiers: ['default'] }]);
     });
 
     it('should extract named import', () => {
       const graph = new ModuleGraph();
-      const ast = graph.parseAST("import { foo } from 'bar';");
-      const imports = graph.extractImports(ast);
+      const ast = _priv(graph).parseAST("import { foo } from 'bar';");
+      const imports = _priv(graph).extractImports(ast);
       expect(imports).toEqual([{ source: 'bar', specifiers: ['foo'] }]);
     });
 
     it('should extract named import with alias', () => {
       const graph = new ModuleGraph();
-      const ast = graph.parseAST("import { foo as bar } from 'baz';");
-      const imports = graph.extractImports(ast);
+      const ast = _priv(graph).parseAST("import { foo as bar } from 'baz';");
+      const imports = _priv(graph).extractImports(ast);
       expect(imports).toEqual([{ source: 'baz', specifiers: ['foo'] }]);
     });
 
     it('should extract namespace import', () => {
       const graph = new ModuleGraph();
-      const ast = graph.parseAST("import * as foo from 'bar';");
-      const imports = graph.extractImports(ast);
+      const ast = _priv(graph).parseAST("import * as foo from 'bar';");
+      const imports = _priv(graph).extractImports(ast);
       expect(imports).toEqual([{ source: 'bar', specifiers: ['*'] }]);
     });
 
     it('should extract multiple specifiers from one import', () => {
       const graph = new ModuleGraph();
-      const ast = graph.parseAST("import foo, { bar, baz as qux } from 'module';");
-      const imports = graph.extractImports(ast);
+      const ast = _priv(graph).parseAST("import foo, { bar, baz as qux } from 'module';");
+      const imports = _priv(graph).extractImports(ast);
       expect(imports).toEqual([{
         source: 'module',
         specifiers: ['default', 'bar', 'baz'],
@@ -74,8 +81,8 @@ describe('ModuleGraph', () => {
 import foo from 'a';
 import { bar } from 'b';
       `;
-      const ast = graph.parseAST(code);
-      const imports = graph.extractImports(ast);
+      const ast = _priv(graph).parseAST(code);
+      const imports = _priv(graph).extractImports(ast);
       expect(imports).toEqual([
         { source: 'a', specifiers: ['default'] },
         { source: 'b', specifiers: ['bar'] },
@@ -84,8 +91,8 @@ import { bar } from 'b';
 
     it('should return empty array for code with no imports', () => {
       const graph = new ModuleGraph();
-      const ast = graph.parseAST('const x = 1; console.log(x);');
-      const imports = graph.extractImports(ast);
+      const ast = _priv(graph).parseAST('const x = 1; console.log(x);');
+      const imports = _priv(graph).extractImports(ast);
       expect(imports).toEqual([]);
     });
 
@@ -96,8 +103,8 @@ import { foo } from 'bar';
 const x = 1;
 export default x;
       `;
-      const ast = graph.parseAST(code);
-      const imports = graph.extractImports(ast);
+      const ast = _priv(graph).parseAST(code);
+      const imports = _priv(graph).extractImports(ast);
       expect(imports).toHaveLength(1);
       expect(imports[0].source).toBe('bar');
     });
@@ -105,8 +112,8 @@ export default x;
     it('should handle string literal import name (ES2022)', () => {
       const graph = new ModuleGraph();
       // import { "foo" as bar } is ES2022 syntax
-      const ast = graph.parseAST('import { "has" as foo } from "bar";');
-      const imports = graph.extractImports(ast);
+      const ast = _priv(graph).parseAST('import { "has" as foo } from "bar";');
+      const imports = _priv(graph).extractImports(ast);
       expect(imports).toEqual([{ source: 'bar', specifiers: ['has'] }]);
     });
   });
@@ -114,13 +121,13 @@ export default x;
   describe('resolvePath', () => {
     it('should resolve relative path (./)', async () => {
       const graph = new ModuleGraph();
-      const resolved = await graph.resolvePath('./foo', '/project/src/index.ts');
+      const resolved = await _priv(graph).resolvePath('./foo', '/project/src/index.ts');
       expect(resolved).toBe('/project/src/foo');
     });
 
     it('should resolve relative path (../)', async () => {
       const graph = new ModuleGraph();
-      const resolved = await graph.resolvePath('../foo', '/project/src/sub/index.ts');
+      const resolved = await _priv(graph).resolvePath('../foo', '/project/src/sub/index.ts');
       expect(resolved).toBe('/project/src/foo');
     });
 
@@ -130,7 +137,7 @@ export default x;
           '@': () => '/project/src',
         },
       });
-      const resolved = await graph.resolvePath('@/utils', '/project/src/index.ts');
+      const resolved = await _priv(graph).resolvePath('@/utils', '/project/src/index.ts');
       expect(resolved).toBe('/project/src/utils');
     });
 
@@ -140,26 +147,26 @@ export default x;
           '~': () => '/project/node_modules',
         },
       });
-      const resolved = await graph.resolvePath('~/lodash', '/project/src/index.ts');
+      const resolved = await _priv(graph).resolvePath('~/lodash', '/project/src/index.ts');
       expect(resolved).toBe('/project/node_modules/lodash');
     });
 
     it('should return null for absolute path', async () => {
       const graph = new ModuleGraph();
-      const resolved = await graph.resolvePath('/absolute/path', '/project/src/index.ts');
+      const resolved = await _priv(graph).resolvePath('/absolute/path', '/project/src/index.ts');
       expect(resolved).toBeNull();
     });
 
     it('should resolve node_modules package as leaf path', async () => {
       const graph = new ModuleGraph();
-      const resolved = await graph.resolvePath('@babel/parser', '/project/src/index.ts');
+      const resolved = await _priv(graph).resolvePath('@babel/parser', '/project/src/index.ts');
       expect(resolved).toBe('node_modules/@babel/parser');
     });
 
     it('should resolve scoped and non-scoped node_modules packages', async () => {
       const graph = new ModuleGraph();
-      const scoped = await graph.resolvePath('@babel/parser', '/project/src/index.ts');
-      const normal = await graph.resolvePath('lodash', '/project/src/index.ts');
+      const scoped = await _priv(graph).resolvePath('@babel/parser', '/project/src/index.ts');
+      const normal = await _priv(graph).resolvePath('lodash', '/project/src/index.ts');
       expect(scoped).toBe('node_modules/@babel/parser');
       expect(normal).toBe('node_modules/lodash');
     });
@@ -167,7 +174,7 @@ export default x;
     it('should handle non-existent node_modules package gracefully', async () => {
       const graph = new ModuleGraph();
       // node_modules packages are now leaf paths, no require.resolve involved
-      const resolved = await graph.resolvePath('non-existent-package-xyz-123', '/project/src/index.ts');
+      const resolved = await _priv(graph).resolvePath('non-existent-package-xyz-123', '/project/src/index.ts');
       expect(resolved).toBe('node_modules/non-existent-package-xyz-123');
     });
   });
@@ -314,7 +321,7 @@ export default x;
       });
 
       // built-in @ → <cwd>/src
-      const resolved = await graph.resolvePath('@/utils', '/any/file.ts');
+      const resolved = await _priv(graph).resolvePath('@/utils', '/any/file.ts');
       expect(resolved).toBe(path.resolve(fixturesDir, 'src/utils'));
     });
 
@@ -325,7 +332,7 @@ export default x;
       });
 
       // built-in ~ → <cwd>/node_modules
-      const resolved = await graph.resolvePath('~/lodash', '/any/file.ts');
+      const resolved = await _priv(graph).resolvePath('~/lodash', '/any/file.ts');
       expect(resolved).toBe(path.resolve(fixturesDir, 'node_modules/lodash'));
     });
 
@@ -339,7 +346,7 @@ export default x;
         },
       });
 
-      const resolved = await graph.resolvePath('@/utils', '/any/file.ts');
+      const resolved = await _priv(graph).resolvePath('@/utils', '/any/file.ts');
       expect(resolved).toBe(path.resolve(customSrc, 'utils'));
     });
 
