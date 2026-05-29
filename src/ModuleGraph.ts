@@ -10,7 +10,10 @@ import type {
 class ModuleNode {
   /** 模块的唯一标识，通常是文件的绝对路径 */
   id: string;
-  /** 原始 id */
+  /**
+   * - 原始 id
+   * - rawId 自身只能作为一种参考, 本质上是不准确的; 比如说 ./foo.ts, ../foo.ts 都指向同一个文件就不准了
+   */
   rawId: string;
   /** 源码内容 */
   code: string | undefined;
@@ -33,22 +36,32 @@ class ModuleNode {
     extra?: any;
   };
 
-  constructor(
-    rawId: string,
-    id: string,
-  ) {
-    this.rawId = rawId;
+  constructor({ id, rawId }: {
+    id: string;
+    rawId: string;
+  }) {
     this.id = id;
+    this.rawId = rawId;
   }
 
   /** JSON 序列化：Set/Map 降级为 Array/Object，避免循环引用 */
   toJSON() {
+    return this._serialize(new Set());
+  }
+
+  /** 递归序列化，visited 防止循环引用 */
+  private _serialize(visited: Set<ModuleNode>): any {
+    if (visited.has(this)) {
+      return { _circular: true } as any;
+    }
+    visited.add(this);
+
     return {
-      id: this.id,
-      rawId: this.rawId,
-      dependencies: Object.fromEntries([...this.dependencies].map((d) => [d.rawId, ({ id: d.id })])),
+      dependencies: Object.fromEntries(
+        [...this.dependencies].map((d) => [d.id, d._serialize(visited)]),
+      ),
       /*
-      importers: Object.fromEntries([...this.importers].map((d) => [d.rawId, ({ id: d.id })])),
+      importers: Object.fromEntries([...this.importers].map((d) => [d.rawId, d._serialize(visited)])),
       importedBindings: Object.fromEntries(
         [...this.importedBindings].map(([k, v]) =>
           [k,
@@ -87,7 +100,7 @@ export class ModuleGraph {
   /** JSON 序列化：Map/Set 降级为 Object/Array，方便调试输出 */
   public toJSON() {
     return {
-      entryPoints: Object.fromEntries([...this.entryPoints].map((m) => [m.rawId, { id: m.id }])),
+      entryPoints: [...this.entryPoints].map((m) => m.id),
       modules: Object.fromEntries(
         [...this.modules].map(([id, mod]) => [id, mod.toJSON()]),
       ),
@@ -100,27 +113,23 @@ export class ModuleGraph {
     rawId,
     isEntry = false,
   }: {
-    id?: string;
+    id: string;
     rawId: string;
     isEntry?: boolean;
   }): Promise<ModuleNode | null> {
-    // 入口路径可能包含 alias 前缀（如 @/pages/Index.tsx），需先解析
-    const resolvedId = id ?? await this.resolveId(rawId);
-    if (!resolvedId) return null;
-
-    if (this.modules.has(rawId)) {
-      return this.modules.get(rawId)!;
+    if (this.modules.has(id)) {
+      return this.modules.get(id)!;
     }
 
-    const module = new ModuleNode(rawId, resolvedId);
-    this.modules.set(rawId, module);
+    const module = new ModuleNode({ id, rawId });
+    this.modules.set(id, module);
 
     if (isEntry) {
       this.entryPoints.add(module);
     }
 
     // 读取源码
-    module.code = await fs.promises.readFile(resolvedId, 'utf-8');
+    module.code = await fs.promises.readFile(id, 'utf-8');
 
     // 解析 AST 并读取依赖
     // TODO: .less, .png 等非 js 模块的依赖处理
@@ -159,7 +168,7 @@ export class ModuleGraph {
         if (this.modules.has(resolvedId)) {
           depModule = this.modules.get(resolvedId)!;
         } else {
-          depModule = new ModuleNode(rawId, resolvedId);
+          depModule = new ModuleNode({ id: resolvedId, rawId });
           this.modules.set(resolvedId, depModule);
         }
       } else {
@@ -237,6 +246,7 @@ export class ModuleGraph {
         return getPath() + source.slice(prefix.length - 1);
       }
     }
+
     return null;
   }
 

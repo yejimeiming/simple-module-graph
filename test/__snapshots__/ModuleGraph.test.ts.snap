@@ -3,32 +3,38 @@
 exports[`ModuleGraph > snapshot > should match snapshot for circular dependency graph 1`] = `
 {
   "<fixtures>/circularA.ts": {
-    "dependencies": [
-      "<fixtures>/circularB.ts",
-    ],
-    "id": "<fixtures>/circularA.ts",
-    "importedBindings": {
-      "<fixtures>/circularB.ts": [
-        "b",
-      ],
+    "dependencies": {
+      "./circularB.ts": {
+        "dependencies": {
+          "<fixtures>/circularA.ts": {
+            "_circular": true,
+            "id": "<fixtures>/circularA.ts",
+            "rawId": "<fixtures>/circularA.ts",
+          },
+        },
+        "id": "<fixtures>/circularB.ts",
+        "rawId": "./circularB.ts",
+      },
     },
-    "importers": [
-      "<fixtures>/circularB.ts",
-    ],
+    "id": "<fixtures>/circularA.ts",
+    "rawId": "<fixtures>/circularA.ts",
   },
   "<fixtures>/circularB.ts": {
-    "dependencies": [
-      "<fixtures>/circularA.ts",
-    ],
-    "id": "<fixtures>/circularB.ts",
-    "importedBindings": {
-      "<fixtures>/circularA.ts": [
-        "a",
-      ],
+    "dependencies": {
+      "<fixtures>/circularA.ts": {
+        "dependencies": {
+          "./circularB.ts": {
+            "_circular": true,
+            "id": "<fixtures>/circularB.ts",
+            "rawId": "./circularB.ts",
+          },
+        },
+        "id": "<fixtures>/circularA.ts",
+        "rawId": "<fixtures>/circularA.ts",
+      },
     },
-    "importers": [
-      "<fixtures>/circularA.ts",
-    ],
+    "id": "<fixtures>/circularB.ts",
+    "rawId": "./circularB.ts",
   },
 }
 `;
@@ -36,55 +42,47 @@ exports[`ModuleGraph > snapshot > should match snapshot for circular dependency 
 exports[`ModuleGraph > snapshot > should match snapshot for entry dependency graph 1`] = `
 {
   "<fixtures>/bar.ts": {
-    "dependencies": [
-      "<fixtures>/utils.ts",
-    ],
-    "id": "<fixtures>/bar.ts",
-    "importedBindings": {
-      "<fixtures>/utils.ts": [
-        "helper",
-      ],
+    "dependencies": {
+      "./utils.ts": {
+        "id": "<fixtures>/utils.ts",
+        "rawId": "./utils.ts",
+      },
     },
-    "importers": [
-      "<fixtures>/entry.ts",
-    ],
+    "id": "<fixtures>/bar.ts",
+    "rawId": "./bar.ts",
   },
   "<fixtures>/entry.ts": {
-    "dependencies": [
-      "<fixtures>/foo.ts",
-      "<fixtures>/bar.ts",
-      "<fixtures>/utils.ts",
-    ],
-    "id": "<fixtures>/entry.ts",
-    "importedBindings": {
-      "<fixtures>/bar.ts": [
-        "default",
-      ],
-      "<fixtures>/foo.ts": [
-        "foo",
-      ],
-      "<fixtures>/utils.ts": [
-        "*",
-      ],
+    "dependencies": {
+      "./bar.ts": {
+        "dependencies": {
+          "./utils.ts": {
+            "id": "<fixtures>/utils.ts",
+            "rawId": "./utils.ts",
+          },
+        },
+        "id": "<fixtures>/bar.ts",
+        "rawId": "./bar.ts",
+      },
+      "./foo.ts": {
+        "id": "<fixtures>/foo.ts",
+        "rawId": "./foo.ts",
+      },
+      "./utils.ts": {
+        "_circular": true,
+        "id": "<fixtures>/utils.ts",
+        "rawId": "./utils.ts",
+      },
     },
-    "importers": [],
+    "id": "<fixtures>/entry.ts",
+    "rawId": "<fixtures>/entry.ts",
   },
   "<fixtures>/foo.ts": {
-    "dependencies": [],
     "id": "<fixtures>/foo.ts",
-    "importedBindings": {},
-    "importers": [
-      "<fixtures>/entry.ts",
-    ],
+    "rawId": "./foo.ts",
   },
   "<fixtures>/utils.ts": {
-    "dependencies": [],
     "id": "<fixtures>/utils.ts",
-    "importedBindings": {},
-    "importers": [
-      "<fixtures>/bar.ts",
-      "<fixtures>/entry.ts",
-    ],
+    "rawId": "./utils.ts",
   },
 }
 `;
@@ -92,36 +90,26 @@ exports[`ModuleGraph > snapshot > should match snapshot for entry dependency gra
 exports[`ModuleGraph > snapshot > should match snapshot for module with node_modules dependency 1`] = `
 {
   "<fixtures>/utils.ts": {
-    "dependencies": [],
     "id": "<fixtures>/utils.ts",
-    "importedBindings": {},
-    "importers": [
-      "<fixtures>/withExternal.ts",
-    ],
+    "rawId": "./utils.ts",
   },
   "<fixtures>/withExternal.ts": {
-    "dependencies": [
-      "node_modules/lodash",
-      "<fixtures>/utils.ts",
-    ],
-    "id": "<fixtures>/withExternal.ts",
-    "importedBindings": {
-      "<fixtures>/utils.ts": [
-        "helper",
-      ],
-      "node_modules/lodash": [
-        "map",
-      ],
+    "dependencies": {
+      "./utils.ts": {
+        "id": "<fixtures>/utils.ts",
+        "rawId": "./utils.ts",
+      },
+      "lodash": {
+        "id": "node_modules/lodash",
+        "rawId": "lodash",
+      },
     },
-    "importers": [],
+    "id": "<fixtures>/withExternal.ts",
+    "rawId": "<fixtures>/withExternal.ts",
   },
   "node_modules/lodash": {
-    "dependencies": [],
     "id": "node_modules/lodash",
-    "importedBindings": {},
-    "importers": [
-      "<fixtures>/withExternal.ts",
-    ],
+    "rawId": "lodash",
   },
 }
 `;
@@ -129,10 +117,8 @@ exports[`ModuleGraph > snapshot > should match snapshot for module with node_mod
 exports[`ModuleGraph > snapshot > should match snapshot for single module with no imports 1`] = `
 {
   "<fixtures>/empty.ts": {
-    "dependencies": [],
     "id": "<fixtures>/empty.ts",
-    "importedBindings": {},
-    "importers": [],
+    "rawId": "<fixtures>/empty.ts",
   },
 }
 `;

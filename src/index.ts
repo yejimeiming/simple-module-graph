@@ -1,6 +1,7 @@
 export * from './types';
 export * from './ModuleGraph';
 
+import fs from 'fs';
 import path from 'path';
 
 import type { GetModuleGraphOptions, ModuleGraphOptions } from './types';
@@ -36,7 +37,11 @@ export async function getModuleGraph(options: GetModuleGraphOptions) {
 
   const entryFiles = Array.isArray(files) ? files : [files];
   for (const file of entryFiles) {
-    await graph.addModule({ rawId: file, isEntry: true });
+    const id = path.isAbsolute(file) ? file : path.join(cwd, file);
+
+    if (fs.existsSync(id) && fs.statSync(id).isFile()) {
+      await graph.addModule({ id, rawId: file, isEntry: true });
+    }
   }
 
   return graph;
