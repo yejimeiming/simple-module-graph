@@ -40,18 +40,29 @@ class ModuleNode {
 }
 
 export class ModuleGraph {
-  modules = new Map<string, ModuleNode>();
+  public modules = new Map<string, ModuleNode>();
   /** 路由维度文件入口(多个) */
-  entryPoints: Set<ModuleNode> = new Set();
+  public entryPoints: Set<ModuleNode> = new Set();
+
   /** 路径解析别名 */
-  alias;
+  private alias;
 
   constructor(private options: ModuleGraphOptions = {}) {
     this.alias = this.options.alias ?? {};
   }
 
+  /** JSON 序列化：Map/Set 降级为 Object/Array，方便调试输出 */
+  public toJSON() {
+    return {
+      entryPoints: [...this.entryPoints].map((m) => m.id),
+      modules: Object.fromEntries(
+        [...this.modules].map(([id, mod]) => [id, mod.toJSON()]),
+      ),
+    };
+  }
+
   /** 添加模块(核心方法) */
-  async addModule(id: string, isEntry = false): Promise<ModuleNode> {
+  public async addModule(id: string, isEntry = false): Promise<ModuleNode> {
     if (this.modules.has(id)) {
       return this.modules.get(id)!;
     }
@@ -72,7 +83,7 @@ export class ModuleGraph {
     return module;
   }
 
-  async resolveDependencies(module: ModuleNode): Promise<void> {
+  private async resolveDependencies(module: ModuleNode): Promise<void> {
     const ast = this.parseAST(module.code);
     const imports = this.extractImports(ast);
 
@@ -105,11 +116,11 @@ export class ModuleGraph {
     }
   }
 
-  parseAST(code: string) {
+  private parseAST(code: string) {
     return babelParse(code, { sourceType: 'module' });
   }
 
-  extractImports(
+  private extractImports(
     ast: BabelStyleAST,
   ): Array<{ source: string; specifiers: string[] }> {
     const imports: Array<{ source: string; specifiers: string[] }> = [];
@@ -147,7 +158,7 @@ export class ModuleGraph {
     return imports;
   }
 
-  async resolvePath(source: string, importer: string): Promise<string | null> {
+  private async resolvePath(source: string, importer: string): Promise<string | null> {
     // 1. 相对路径
     if (source.startsWith('.')) {
       return path.resolve(path.dirname(importer), source);
