@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3.0 (2026/05/30)
+
+- **Public `resolveId` API**: expose `ModuleGraph.resolveId(source, importer?)` for external path resolution
+- **Smarter path resolution**: auto-resolve file extensions (`extensions` option) and `index` files; support bare-specifier entry files
+- **`cwd` option**: `ModuleGraphOptions.cwd` defaults to `process.cwd()`, used consistently across resolution
+- **Richer `importedBindings`**: each binding now stores `{ id, specifiers, importee }` instead of a flat `Set<string>`
+- **`ImportInfo` type**: new exported interface describing a single import declaration
+- **`ModuleNode.error`**: track per-module parse / resolve errors
+- **`ModuleNode.rawId`**: store the original import specifier (marked `@deprecated` — ambiguous for relative paths)
+- **`code` / `ast` made optional**: `ModuleNode.code` and `ModuleNode.ast` are now `T | undefined`
+- **`getModuleGraph` entry resolution**: resolve entry file paths via `resolveId` before adding to graph
+
 ## v0.2.0 (2026/05/29)
 
 - Add `ModuleGraph.toJSON()` for debugging and serialization
