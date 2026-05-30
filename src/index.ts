@@ -1,6 +1,7 @@
 export * from './types';
 export * from './ModuleGraph';
 
+import fs from 'fs';
 import path from 'path';
 
 import type { GetModuleGraphOptions, ModuleGraphOptions } from './types';
@@ -27,17 +28,19 @@ export async function getModuleGraph(options: GetModuleGraphOptions) {
     alias: customAlias,
   } = options;
 
-  const alias: ModuleGraphOptions['alias'] = {
+  const alias: GetModuleGraphOptions['alias'] = {
     ...createDefaultAlias(cwd),
     ...customAlias,
   };
 
-  const graph = new ModuleGraph({ alias });
+  const graph = new ModuleGraph({ cwd, alias });
 
   const entryFiles = Array.isArray(files) ? files : [files];
   for (const file of entryFiles) {
-    const filePath = path.isAbsolute(file) ? file : path.resolve(cwd, file);
-    await graph.addModule(filePath, true);
+    const id = await graph.resolveId(file);
+    if (id) {
+      await graph.addModule(id, true);
+    }
   }
 
   return graph;
