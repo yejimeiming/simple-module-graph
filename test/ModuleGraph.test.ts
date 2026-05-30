@@ -9,7 +9,6 @@ const fixturesDir = path.resolve(__dirname, 'fixtures');
 const _priv = (graph: ModuleGraph) => graph as unknown as {
   parseAST: typeof graph['parseAST'];
   extractImports: typeof graph['extractImports'];
-  resolveId: typeof graph['resolveId'];
   resolveAlias: typeof graph['resolveAlias'];
 };
 
@@ -40,82 +39,84 @@ describe('ModuleGraph', () => {
   describe('extractImports', () => {
     it('should extract default import', () => {
       const graph = new ModuleGraph();
-      const ast = _priv(graph).parseAST("import foo from 'bar';");
-      const imports = _priv(graph).extractImports(ast);
-      expect(imports).toEqual([{ source: 'bar', specifiers: ['default'] }]);
+      const code = "import foo from 'bar';";
+      const ast = _priv(graph).parseAST(code);
+      const imports = _priv(graph).extractImports(ast, code);
+      expect(imports[0].source).toBe('bar');
+      expect(imports[0].specifiers).toEqual(['default']);
+      expect(imports[0].importee).toBe(code);
     });
 
     it('should extract named import', () => {
       const graph = new ModuleGraph();
-      const ast = _priv(graph).parseAST("import { foo } from 'bar';");
-      const imports = _priv(graph).extractImports(ast);
-      expect(imports).toEqual([{ source: 'bar', specifiers: ['foo'] }]);
+      const code = "import { foo } from 'bar';";
+      const ast = _priv(graph).parseAST(code);
+      const imports = _priv(graph).extractImports(ast, code);
+      expect(imports[0].source).toBe('bar');
+      expect(imports[0].specifiers).toEqual(['foo']);
     });
 
     it('should extract named import with alias', () => {
       const graph = new ModuleGraph();
-      const ast = _priv(graph).parseAST("import { foo as bar } from 'baz';");
-      const imports = _priv(graph).extractImports(ast);
-      expect(imports).toEqual([{ source: 'baz', specifiers: ['foo'] }]);
+      const code = "import { foo as bar } from 'baz';";
+      const ast = _priv(graph).parseAST(code);
+      const imports = _priv(graph).extractImports(ast, code);
+      expect(imports[0].source).toBe('baz');
+      expect(imports[0].specifiers).toEqual(['foo']);
     });
 
     it('should extract namespace import', () => {
       const graph = new ModuleGraph();
-      const ast = _priv(graph).parseAST("import * as foo from 'bar';");
-      const imports = _priv(graph).extractImports(ast);
-      expect(imports).toEqual([{ source: 'bar', specifiers: ['*'] }]);
+      const code = "import * as foo from 'bar';";
+      const ast = _priv(graph).parseAST(code);
+      const imports = _priv(graph).extractImports(ast, code);
+      expect(imports[0].source).toBe('bar');
+      expect(imports[0].specifiers).toEqual(['*']);
     });
 
     it('should extract multiple specifiers from one import', () => {
       const graph = new ModuleGraph();
-      const ast = _priv(graph).parseAST("import foo, { bar, baz as qux } from 'module';");
-      const imports = _priv(graph).extractImports(ast);
-      expect(imports).toEqual([{
-        source: 'module',
-        specifiers: ['default', 'bar', 'baz'],
-      }]);
+      const code = "import foo, { bar, baz as qux } from 'module';";
+      const ast = _priv(graph).parseAST(code);
+      const imports = _priv(graph).extractImports(ast, code);
+      expect(imports[0].source).toBe('module');
+      expect(imports[0].specifiers).toEqual(['default', 'bar', 'baz']);
     });
 
     it('should extract multiple import declarations', () => {
       const graph = new ModuleGraph();
-      const code = `
-import foo from 'a';
-import { bar } from 'b';
-      `;
+      const code = `import foo from 'a';\nimport { bar } from 'b';`;
       const ast = _priv(graph).parseAST(code);
-      const imports = _priv(graph).extractImports(ast);
-      expect(imports).toEqual([
-        { source: 'a', specifiers: ['default'] },
-        { source: 'b', specifiers: ['bar'] },
-      ]);
+      const imports = _priv(graph).extractImports(ast, code);
+      expect(imports).toHaveLength(2);
+      expect(imports[0].source).toBe('a');
+      expect(imports[1].source).toBe('b');
     });
 
     it('should return empty array for code with no imports', () => {
       const graph = new ModuleGraph();
-      const ast = _priv(graph).parseAST('const x = 1; console.log(x);');
-      const imports = _priv(graph).extractImports(ast);
+      const code = 'const x = 1; console.log(x);';
+      const ast = _priv(graph).parseAST(code);
+      const imports = _priv(graph).extractImports(ast, code);
       expect(imports).toEqual([]);
     });
 
     it('should ignore non-import statements', () => {
       const graph = new ModuleGraph();
-      const code = `
-import { foo } from 'bar';
-const x = 1;
-export default x;
-      `;
+      const code = `import { foo } from 'bar';\nconst x = 1;\nexport default x;`;
       const ast = _priv(graph).parseAST(code);
-      const imports = _priv(graph).extractImports(ast);
+      const imports = _priv(graph).extractImports(ast, code);
       expect(imports).toHaveLength(1);
       expect(imports[0].source).toBe('bar');
     });
 
     it('should handle string literal import name (ES2022)', () => {
       const graph = new ModuleGraph();
-      // import { "foo" as bar } is ES2022 syntax
-      const ast = _priv(graph).parseAST('import { "has" as foo } from "bar";');
-      const imports = _priv(graph).extractImports(ast);
-      expect(imports).toEqual([{ source: 'bar', specifiers: ['has'] }]);
+      const code = 'import { "has" as foo } from "bar";';
+      const ast = _priv(graph).parseAST(code);
+      const imports = _priv(graph).extractImports(ast, code);
+      expect(imports[0].source).toBe('bar');
+      expect(imports[0].specifiers).toEqual(['has']);
     });
   });
 
@@ -123,21 +124,21 @@ export default x;
     it('should resolve relative path with extension', async () => {
       const graph = new ModuleGraph();
       const importer = path.resolve(fixturesDir, 'entry.ts');
-      const resolved = await _priv(graph).resolveId('./foo.ts', importer);
+      const resolved = await graph.resolveId('./foo.ts', importer);
       expect(resolved).toBe(path.resolve(fixturesDir, 'foo.ts'));
     });
 
     it('should resolve relative path without extension (auto-append)', async () => {
       const graph = new ModuleGraph();
       const importer = path.resolve(fixturesDir, 'entry.ts');
-      const resolved = await _priv(graph).resolveId('./foo', importer);
+      const resolved = await graph.resolveId('./foo', importer);
       expect(resolved).toBe(path.resolve(fixturesDir, 'foo.ts'));
     });
 
     it('should resolve relative path (../)', async () => {
       const graph = new ModuleGraph();
       const importer = path.resolve(fixturesDir, 'entry.ts');
-      const resolved = await _priv(graph).resolveId('./utils', importer);
+      const resolved = await graph.resolveId('./utils', importer);
       expect(resolved).toBe(path.resolve(fixturesDir, 'utils.ts'));
     });
 
@@ -147,7 +148,7 @@ export default x;
           '@': () => fixturesDir,
         },
       });
-      const resolved = await _priv(graph).resolveId('@/foo.ts');
+      const resolved = await graph.resolveId('@/foo.ts');
       expect(resolved).toBe(path.resolve(fixturesDir, 'foo.ts'));
     });
 
@@ -157,33 +158,33 @@ export default x;
           '@': () => fixturesDir,
         },
       });
-      const resolved = await _priv(graph).resolveId('@/foo');
+      const resolved = await graph.resolveId('@/foo');
       expect(resolved).toBe(path.resolve(fixturesDir, 'foo.ts'));
     });
 
     it('should return null for non-existent path', async () => {
       const graph = new ModuleGraph();
-      const resolved = await _priv(graph).resolveId('/non/existent/path');
+      const resolved = await graph.resolveId('/non/existent/path');
       expect(resolved).toBeNull();
     });
 
     it('should resolve node_modules package as leaf path', async () => {
       const graph = new ModuleGraph();
-      const resolved = await _priv(graph).resolveId('@babel/parser', '/project/src/index.ts');
+      const resolved = await graph.resolveId('@babel/parser', '/project/src/index.ts');
       expect(resolved).toBe('node_modules/@babel/parser');
     });
 
     it('should resolve scoped and non-scoped node_modules packages', async () => {
       const graph = new ModuleGraph();
-      const scoped = await _priv(graph).resolveId('@babel/parser', '/project/src/index.ts');
-      const normal = await _priv(graph).resolveId('lodash', '/project/src/index.ts');
+      const scoped = await graph.resolveId('@babel/parser', '/project/src/index.ts');
+      const normal = await graph.resolveId('lodash', '/project/src/index.ts');
       expect(scoped).toBe('node_modules/@babel/parser');
       expect(normal).toBe('node_modules/lodash');
     });
 
     it('should handle non-existent node_modules package gracefully', async () => {
       const graph = new ModuleGraph();
-      const resolved = await _priv(graph).resolveId('non-existent-package-xyz-123', '/project/src/index.ts');
+      const resolved = await graph.resolveId('non-existent-package-xyz-123', '/project/src/index.ts');
       expect(resolved).toBe('node_modules/non-existent-package-xyz-123');
     });
   });
@@ -235,17 +236,16 @@ export default x;
     it('should add a module and read its code', async () => {
       const graph = new ModuleGraph();
       const modulePath = path.resolve(fixturesDir, 'foo.ts');
-      const mod = await graph.addModule({ id: modulePath, rawId: modulePath });
+      const mod = await graph.addModule(modulePath);
       expect(mod).not.toBeNull();
       expect(mod!.id).toBe(modulePath);
-      expect(mod!.rawId).toBe(modulePath);
       expect(mod!.code).toContain("export const foo = 'foo'");
     });
 
     it('should add entry point', async () => {
       const graph = new ModuleGraph();
       const modulePath = path.resolve(fixturesDir, 'foo.ts');
-      const mod = await graph.addModule({ id: modulePath, rawId: modulePath, isEntry: true });
+      const mod = await graph.addModule(modulePath, true);
       expect(mod).not.toBeNull();
       expect(graph.entryPoints.has(mod!)).toBe(true);
     });
@@ -253,8 +253,8 @@ export default x;
     it('should return existing module if already added', async () => {
       const graph = new ModuleGraph();
       const modulePath = path.resolve(fixturesDir, 'foo.ts');
-      const mod1 = await graph.addModule({ id: modulePath, rawId: modulePath });
-      const mod2 = await graph.addModule({ id: modulePath, rawId: modulePath });
+      const mod1 = await graph.addModule(modulePath);
+      const mod2 = await graph.addModule(modulePath);
       expect(mod1).toBe(mod2);
       expect(graph.modules.size).toBe(1);
     });
@@ -262,14 +262,14 @@ export default x;
     it('should throw for non-existent file', async () => {
       const graph = new ModuleGraph();
       await expect(
-        graph.addModule({ id: '/non/existent/file.ts', rawId: '/non/existent/file.ts' }),
+        graph.addModule('/non/existent/file.ts')
       ).rejects.toThrow();
     });
 
     it('should recursively resolve dependencies', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'entry.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       // entry -> foo, bar, utils; bar -> utils
       // modules keyed by resolvedId (absolute paths)
@@ -302,20 +302,22 @@ export default x;
     it('should track imported bindings', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'entry.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       const entryMod = graph.modules.get(entryPath)!;
+      const utilsPath = path.resolve(fixturesDir, 'utils.ts');
 
-      // entry imports * from utils (rawId = './utils.ts')
-      const binding = entryMod.importedBindings.get('./utils.ts');
+      // entry imports * from utils
+      const binding = entryMod.importedBindings.get(utilsPath);
       expect(binding).toBeDefined();
       expect(binding!.specifiers).toEqual(new Set(['*']));
+      expect(binding!.importee).toContain('import');
     });
 
     it('should handle module with no imports', async () => {
       const graph = new ModuleGraph();
       const modulePath = path.resolve(fixturesDir, 'empty.ts');
-      const mod = await graph.addModule({ id: modulePath, rawId: modulePath });
+      const mod = await graph.addModule(modulePath);
       expect(mod).not.toBeNull();
       expect(mod!.dependencies.size).toBe(0);
       expect(mod!.importers.size).toBe(0);
@@ -325,7 +327,7 @@ export default x;
     it('should handle circular dependencies', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'circularA.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       const circAPath = path.resolve(fixturesDir, 'circularA.ts');
       const circBPath = path.resolve(fixturesDir, 'circularB.ts');
@@ -342,7 +344,7 @@ export default x;
     it('should treat node_modules packages as leaf nodes', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'withExternal.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       const entryMod = graph.modules.get(entryPath)!;
       const extMod = graph.modules.get('node_modules/lodash')!;
@@ -362,14 +364,13 @@ export default x;
           '@': () => fixturesDir,
         },
       });
-      const id = await _priv(graph).resolveId('@/foo.ts');
+      const id = await graph.resolveId('@/foo.ts');
       expect(id).not.toBeNull();
-      const mod = await graph.addModule({ id: id!, rawId: '@/foo.ts', isEntry: true });
+      const mod = await graph.addModule(id!, true);
 
       const fooPath = path.resolve(fixturesDir, 'foo.ts');
       expect(mod).not.toBeNull();
       expect(mod!.id).toBe(fooPath);
-      expect(mod!.rawId).toBe('@/foo.ts');
       expect(graph.modules.has(fooPath)).toBe(true);
       expect(graph.entryPoints.has(mod!)).toBe(true);
     });
@@ -467,10 +468,7 @@ export default x;
       str.replace(fixturesDir, '<fixtures>');
 
     const normalizeNode = (json: any): any => {
-      const result: any = {
-        id: normalizePath(json.id),
-        rawId: normalizePath(json.rawId),
-      };
+      const result: any = {};
       if (json.dependencies && Object.keys(json.dependencies).length > 0) {
         result.dependencies = Object.fromEntries(
           Object.entries(json.dependencies).map(([k, v]) => [normalizePath(k), normalizeNode(v)]),
@@ -496,7 +494,7 @@ export default x;
     it('should match snapshot for entry dependency graph', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'entry.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       expect(normalizeGraph(graph)).toMatchSnapshot();
     });
@@ -504,7 +502,7 @@ export default x;
     it('should match snapshot for circular dependency graph', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'circularA.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       expect(normalizeGraph(graph)).toMatchSnapshot();
     });
@@ -512,7 +510,7 @@ export default x;
     it('should match snapshot for module with node_modules dependency', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'withExternal.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       expect(normalizeGraph(graph)).toMatchSnapshot();
     });
@@ -520,7 +518,7 @@ export default x;
     it('should match snapshot for single module with no imports', async () => {
       const graph = new ModuleGraph();
       const modulePath = path.resolve(fixturesDir, 'empty.ts');
-      await graph.addModule({ id: modulePath, rawId: modulePath, isEntry: true });
+      await graph.addModule(modulePath, true);
 
       expect(normalizeGraph(graph)).toMatchSnapshot();
     });
@@ -530,51 +528,51 @@ export default x;
     it('should serialize to JSON without circular references', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'entry.ts');
-      const mod = await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      const mod = await graph.addModule(entryPath, true);
 
       const json = JSON.parse(JSON.stringify(mod!.toJSON()));
-      expect(json.id).toBe(entryPath);
-      expect(json.rawId).toBe(entryPath);
       expect(typeof json.dependencies).toBe('object');
       expect(json.dependencies).not.toBeNull();
     });
 
-    it('should serialize dependencies recursively as object keyed by rawId', async () => {
+    it('should serialize dependencies recursively as object keyed by id', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'entry.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       const entryMod = graph.modules.get(entryPath)!;
       const json = entryMod.toJSON();
 
-      // dependencies is an object keyed by rawId (import source)
+      // dependencies is an object keyed by id (resolved absolute path)
       expect(typeof json.dependencies).toBe('object');
-      expect(Object.keys(json.dependencies)).toEqual(
-        expect.arrayContaining(['./foo.ts', './bar.ts', './utils.ts']),
+      const depKeys = Object.keys(json.dependencies);
+      const fooPath = path.resolve(fixturesDir, 'foo.ts');
+      const barPath = path.resolve(fixturesDir, 'bar.ts');
+      const utilsPath = path.resolve(fixturesDir, 'utils.ts');
+      expect(depKeys).toEqual(
+        expect.arrayContaining([fooPath, barPath, utilsPath]),
       );
 
       // each dependency has nested structure
-      const barDep = json.dependencies['./bar.ts'];
-      expect(barDep.id).toBe(path.resolve(fixturesDir, 'bar.ts'));
-      expect(barDep.rawId).toBe('./bar.ts');
+      const barDep = json.dependencies[barPath];
       // bar -> utils: nested dependency
       expect(typeof barDep.dependencies).toBe('object');
-      expect(barDep.dependencies['./utils.ts']).toBeDefined();
+      expect(barDep.dependencies[utilsPath]).toBeDefined();
     });
 
     it('should mark circular dependencies with _circular flag', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'circularA.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       const circA = graph.modules.get(entryPath)!;
       const json = circA.toJSON();
 
       // circularA -> circularB -> circularA: the nested circularA should have _circular flag
-      const circBDep = json.dependencies['./circularB.ts'];
+      const circBPath = path.resolve(fixturesDir, 'circularB.ts');
+      const circBDep = json.dependencies[circBPath];
       expect(circBDep).toBeDefined();
       // circularB depends on circularA, which should be marked _circular
-      // Note: circularA's rawId is the absolute path because it was added as entry
       const circADepInB = circBDep.dependencies[entryPath];
       expect(circADepInB._circular).toBe(true);
     });
@@ -582,13 +580,11 @@ export default x;
     it('should serialize node_modules leaf node', async () => {
       const graph = new ModuleGraph();
       const entryPath = path.resolve(fixturesDir, 'withExternal.ts');
-      await graph.addModule({ id: entryPath, rawId: entryPath, isEntry: true });
+      await graph.addModule(entryPath, true);
 
       const extMod = graph.modules.get('node_modules/lodash')!;
       const json = extMod.toJSON();
 
-      expect(json.id).toBe('node_modules/lodash');
-      expect(json.rawId).toBe('lodash');
       expect(json.dependencies).toEqual({});
     });
   });

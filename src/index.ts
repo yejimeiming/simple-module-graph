@@ -33,14 +33,13 @@ export async function getModuleGraph(options: GetModuleGraphOptions) {
     ...customAlias,
   };
 
-  const graph = new ModuleGraph({ alias });
+  const graph = new ModuleGraph({ cwd, alias });
 
   const entryFiles = Array.isArray(files) ? files : [files];
   for (const file of entryFiles) {
-    const id = path.isAbsolute(file) ? file : path.join(cwd, file);
-
-    if (fs.existsSync(id) && fs.statSync(id).isFile()) {
-      await graph.addModule({ id, rawId: file, isEntry: true });
+    const id = await graph.resolveId(file);
+    if (id) {
+      await graph.addModule(id, true);
     }
   }
 
