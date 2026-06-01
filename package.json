@@ -1,8 +1,8 @@
 {
   "name": "simple-module-graph",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "repository": "https://github.com/yejimeiming/simple-module-graph.git",
-  "author": "草鞋没号 <308487730@qq.com>",
+  "author": "单子哥 <asd308487730@gmail.com>",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

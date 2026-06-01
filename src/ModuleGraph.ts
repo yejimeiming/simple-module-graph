@@ -131,7 +131,7 @@ export class ModuleGraph {
     return module;
   }
 
-  private async resolveDependencies(module: ModuleNode): Promise<void> {
+  public async resolveDependencies(module: ModuleNode): Promise<void> {
     let ast: BabelStyleAST | undefined;
     const code = module.code as string;
 
@@ -183,7 +183,7 @@ export class ModuleGraph {
     }
   }
 
-  private parseAST(code: string): BabelStyleAST {
+  public parseAST(code: string): BabelStyleAST {
     return babelParse(code, {
       sourceType: 'module',
       plugins: [
@@ -193,7 +193,7 @@ export class ModuleGraph {
     });
   }
 
-  private extractImports(ast: BabelStyleAST, code: string): Array<ImportInfo> {
+  public extractImports(ast: BabelStyleAST, code: string): Array<ImportInfo> {
     const imports: Array<ImportInfo> = [];
 
     for (const node of ast.program.body) {
@@ -234,7 +234,7 @@ export class ModuleGraph {
   }
 
   /** alias 前缀匹配解析（独立方法，供 addModule 和 resolvePath 复用） */
-  private async resolveAlias(source: string): Promise<string | null> {
+  public async resolveAlias(source: string): Promise<string | null> {
     for (const [key, getPath] of Object.entries(this.alias)) {
       const prefix = `${key}/`;
       if (source.startsWith(prefix)) {
@@ -245,7 +245,7 @@ export class ModuleGraph {
     return null;
   }
 
-  private async tryResolveWithExt(source: string): Promise<string | null> {
+  public async tryResolveWithExt(source: string): Promise<string | null> {
     if (fs.existsSync(source) && fs.statSync(source).isFile()) {
       return source;
     }
@@ -268,7 +268,7 @@ export class ModuleGraph {
     return null;
   }
 
-  private async resolveEntryFile(source: string): Promise<string | null> {
+  public async resolveEntryFile(source: string): Promise<string | null> {
     return await this.tryResolveWithExt(
       path.resolve(this.cwd, source),
     );

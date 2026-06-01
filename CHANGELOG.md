@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.1 (2026/06/01)
+
+- Fix README API docs: `resolvePath` → `resolveId`, `extractImports(ast)` → `extractImports(ast, code)`, add type column and missing public methods
+- Streamline test suite: 39 → 19 cases, removing redundant coverage
+
 ## v0.3.0 (2026/05/30)
 
 - **Public `resolveId` API**: expose `ModuleGraph.resolveId(source, importer?)` for external path resolution
