@@ -81,6 +81,7 @@ class ModuleNode {
 }
 
 export class ModuleGraph {
+  /** Map<模块id, 模块节点> */
   public modules = new Map<string, ModuleNode>();
   /** 路由维度文件入口(多个) */
   public entryPoints: Set<ModuleNode> = new Set();
@@ -126,17 +127,8 @@ export class ModuleGraph {
 
     // 解析 AST 并读取依赖
     // TODO: .less, .png 等非 js 模块的依赖处理
-    await this.resolveDependencies(module);
-
-    return module;
-  }
-
-  public async resolveDependencies(module: ModuleNode): Promise<void> {
-    let ast: BabelStyleAST | undefined;
-    const code = module.code as string;
-
     try {
-      ast = this.parseAST(code);
+      module.ast = this.parseAST(module.code);
     } catch (error: any) {
       module.error = {
         type: 'parse',
@@ -144,7 +136,17 @@ export class ModuleGraph {
         extra: error,
       };
     }
-    if (!ast) return;
+
+    await this.resolveDependencies(module);
+
+    return module;
+  }
+
+  public async resolveDependencies(module: ModuleNode): Promise<void> {
+    const code = module.code;
+    const ast = module.ast;
+
+    if (!code || !ast) return;
 
     const imports = this.extractImports(ast, code);
 
