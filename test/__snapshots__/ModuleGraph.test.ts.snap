@@ -51,22 +51,3 @@ exports[`ModuleGraph > snapshot > should match snapshot for entry dependency gra
   "<fixtures>/utils.ts": {},
 }
 `;
-
-exports[`ModuleGraph > snapshot > should match snapshot for module with node_modules dependency 1`] = `
-{
-  "<fixtures>/utils.ts": {},
-  "<fixtures>/withExternal.ts": {
-    "dependencies": {
-      "<fixtures>/utils.ts": {},
-      "node_modules/lodash": {},
-    },
-  },
-  "node_modules/lodash": {},
-}
-`;
-
-exports[`ModuleGraph > snapshot > should match snapshot for single module with no imports 1`] = `
-{
-  "<fixtures>/empty.ts": {},
-}
-`;
