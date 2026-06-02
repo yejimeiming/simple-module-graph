@@ -8,7 +8,7 @@ import type {
 } from './types';
 
 /** 核心数据结构 */
-class ModuleNode {
+export class ModuleNode {
   /** 模块的唯一标识，通常是文件的绝对路径 */
   id: string;
   /**
